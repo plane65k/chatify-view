@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chatify Stream · p2p screen share</title>
+  <link rel="icon" type="image/png" href="https://res.cloudinary.com/dceqg5cky/image/upload/SDG_log-removebg-preview_bslq5d.png" />
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    /* --- same styles as before --- */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+    }
+    :root {
+      --bg: #f5f5f5;
+      --text: #1e1e1e;
+      --card: #ffffff;
+      --accent: #4caf50;
+      --accent-dark: #3d8b40;
+      --border: #d0d0d0;
+      --shadow: rgba(0, 0, 0, 0.06);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --device-bg: #f0f0f0;
+      --wave-color: #4caf50;
+      --msg-other: #ffffff;
+      --placeholder-bg: #e8e8e8;
+      --video-bg: #1a1a1a;
+    }
+    [data-theme="dark"] {
+      --bg: #121212;
+      --text: #eaeaea;
+      --card: #242424;
+      --accent: #4caf50;
+      --accent-dark: #388e3c;
+      --border: #3a3a3a;
+      --shadow: rgba(255, 255, 255, 0.04);
+      --device-bg: #2a2a2a;
+      --wave-color: #66bb6a;
+      --placeholder-bg: #2a2a2a;
+      --video-bg: #0a0a0a;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background 0.2s, color 0.2s;
+    }
+    .glass {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 4px 20px var(--shadow);
+      padding: 18px 20px;
+      transition: background 0.2s, border 0.2s;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 22px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 40px;
+      margin: 10px 16px 0 16px;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    header .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    header .brand img {
+      height: 32px;
+      width: auto;
+    }
+    header .brand h1 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+    header .brand .badge {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 2px 12px;
+      border-radius: 30px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .header-actions button {
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      color: #fff;
+      padding: 5px 14px;
+      border-radius: 30px;
+      font-weight: 500;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      backdrop-filter: blur(4px);
+    }
+    .header-actions button:hover {
+      background: rgba(255, 255, 255, 0.28);
+    }
+    .app-grid {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 18px;
+      padding: 18px 24px;
+      flex: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    @media (max-width: 780px) {
+      .app-grid {
+        grid-template-columns: 1fr;
+        padding: 12px;
+      }
+      header {
+        margin: 6px 8px 0 8px;
+        padding: 8px 16px;
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .header-actions {
+        justify-content: flex-end;
+      }
+    }
+    .panel {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .panel-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+    .panel-title .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      background: var(--border);
+    }
+    .dot.online {
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+    .nearby-container {
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 16px 14px;
+      transition: background 0.2s;
+    }
+    .device-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-height: 140px;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .device-grid::-webkit-scrollbar {
+      width: 3px;
+    }
+    .device-grid::-webkit-scrollbar-thumb {
+      background: var(--accent);
+      border-radius: 10px;
+    }
+    .device-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--device-bg);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+      position: relative;
+    }
+    .device-card.active {
+      border-color: var(--accent);
+      background: var(--card);
+    }
+    .device-icon-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .device-icon {
+      font-size: 1.6rem;
+      line-height: 1;
+      opacity: 0.8;
+    }
+    .signal-waves {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      height: 28px;
+      padding: 0 4px;
+    }
+    .wave {
+      width: 3px;
+      background: var(--wave-color);
+      border-radius: 3px;
+      transition: height 0.3s ease;
+      height: 6px;
+      opacity: 0.5;
+    }
+    .wave.active {
+      opacity: 1;
+      animation: pulse-wave 1.2s ease-in-out infinite;
+    }
+    .wave.w1 { height: 12px; animation-delay: 0s; }
+    .wave.w2 { height: 18px; animation-delay: 0.2s; }
+    .wave.w3 { height: 24px; animation-delay: 0.4s; }
+    .wave.w4 { height: 18px; animation-delay: 0.6s; }
+    .wave.w5 { height: 12px; animation-delay: 0.8s; }
+    @keyframes pulse-wave {
+      0%, 100% { transform: scaleY(0.6); opacity: 0.5; }
+      50% { transform: scaleY(1); opacity: 1; }
+    }
+    .device-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .device-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .device-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 0.7rem;
+      opacity: 0.6;
+      margin-top: 2px;
+      flex-wrap: wrap;
+    }
+    .device-meta .label { font-weight: 400; }
+    .device-meta .val {
+      font-weight: 500;
+      color: var(--text);
+      opacity: 0.8;
+    }
+    .device-action {
+      flex-shrink: 0;
+    }
+    .device-action button {
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      padding: 4px 16px;
+      border-radius: 30px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .device-action button:hover {
+      background: var(--accent-dark);
+    }
+    .device-action button:disabled {
+      opacity: 0.3;
+      pointer-events: none;
+    }
+    .empty-devices {
+      text-align: center;
+      padding: 28px 0;
+      color: var(--text);
+      opacity: 0.4;
+      font-size: 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .empty-devices .big-icon {
+      font-size: 2.4rem;
+      opacity: 0.5;
+    }
+    .pair-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: var(--bg);
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      margin-top: 4px;
+    }
+    .pair-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+    .pair-row .label {
+      font-weight: 500;
+      font-size: 0.8rem;
+      opacity: 0.7;
+      min-width: 70px;
+    }
+    .code-display {
+      font-family: 'Courier New', monospace;
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: 4px;
+      background: var(--card);
+      padding: 2px 16px;
+      border-radius: 10px;
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      min-width: 120px;
+      text-align: center;
+    }
+    .code-input {
+      font-family: 'Courier New', monospace;
+      font-size: 1.1rem;
+      letter-spacing: 3px;
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 2px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      width: 150px;
+      text-align: center;
+      outline: none;
+    }
+    .code-input:focus {
+      border-color: var(--accent);
+    }
+    .btn-sm {
+      padding: 6px 16px;
+      font-size: 0.75rem;
+      border-radius: 30px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      transition: 0.15s;
+    }
+    .btn-sm:hover {
+      background: var(--accent-dark);
+    }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-outline:hover {
+      background: var(--border);
+    }
+    .btn-danger {
+      background: #e74c3c;
+      color: #fff;
+    }
+    .btn-danger:hover {
+      background: #c0392b;
+    }
+    .screen-box {
+      background: var(--card);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      background: var(--video-bg);
+      min-height: 340px;
+    }
+    .screen-video-wrapper {
+      position: relative;
+      width: 100%;
+      flex: 1;
+      background: var(--video-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+    }
+    .screen-video-wrapper video {
+      width: 100%;
+      height: 100%;
+      max-height: 500px;
+      object-fit: contain;
+      background: var(--video-bg);
+      display: block;
+    }
+    .screen-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 0.95rem;
+      gap: 8px;
+      text-align: center;
+      padding: 20px;
+      pointer-events: none;
+    }
+    .screen-placeholder .big-icon {
+      font-size: 3rem;
+      opacity: 0.5;
+    }
+    .screen-placeholder .sub {
+      font-size: 0.75rem;
+      opacity: 0.4;
+    }
+    .screen-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 12px 16px;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      align-items: center;
+      justify-content: space-between;
+    }
+    .screen-controls .left {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .screen-controls .right {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .screen-controls button {
+      padding: 6px 18px;
+      border-radius: 30px;
+      border: none;
+      font-weight: 600;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .btn-share {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-share:hover {
+      background: var(--accent-dark);
+    }
+    .btn-share:disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+    .btn-stop {
+      background: #e74c3c;
+      color: #fff;
+    }
+    .btn-stop:hover {
+      background: #c0392b;
+    }
+    .btn-fullscreen {
+      background: rgba(255, 255, 255, 0.15);
+      color: var(--text);
+      border: 1px solid var(--border);
+      background: var(--device-bg);
+    }
+    .btn-fullscreen:hover {
+      background: var(--border);
+    }
+    .share-status {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .share-status .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .share-status .dot.green { background: var(--accent); }
+    .share-status .dot.red { background: #e74c3c; }
+    .share-status .dot.orange { background: #f39c12; }
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 20px;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--text);
+      border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+      flex-wrap: wrap;
+    }
+    .status-bar .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+    .status-bar .dot.green { background: var(--accent); }
+    .status-bar .dot.red { background: #e74c3c; }
+    .status-bar .dot.orange { background: #f39c12; }
+    .status-bar .time {
+      opacity: 0.4;
+      font-size: 0.7rem;
+      margin-left: auto;
+    }
+    .notify {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: #fff;
+      padding: 10px 24px;
+      border-radius: 40px;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+      z-index: 999;
+      font-weight: 500;
+      font-size: 0.9rem;
+      display: none;
+      backdrop-filter: blur(8px);
+      max-width: 90%;
+      text-align: center;
+    }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
+    .screen-video-wrapper:fullscreen video { max-height: 100vh; object-fit: contain; }
+    .screen-video-wrapper:fullscreen .screen-placeholder { display: none; }
+    .screen-video-wrapper:fullscreen .screen-controls {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.6);
+      border-top: none;
+      border-radius: 0;
+      backdrop-filter: blur(8px);
+    }
+    .screen-video-wrapper:fullscreen .screen-controls button {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+    }
+    .screen-video-wrapper:fullscreen .screen-controls .btn-fullscreen {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .screen-video-wrapper:fullscreen .share-status {
+      color: rgba(255, 255, 255, 0.8);
+    }
+  </style>
+</head>
+<body>
+  <div id="notify" class="notify"></div>
+
+  <header>
+    <div class="brand">
+      <img src="https://res.cloudinary.com/dceqg5cky/image/upload/SDG_log-removebg-preview_bslq5d.png" alt="Chatify" />
+      <h1>Chatify Stream</h1>
+      <span class="badge">p2p</span>
+    </div>
+    <div class="header-actions">
+      <button id="themeToggle">☀️</button>
+      <button id="resetBtn">↺ reset</button>
+    </div>
+  </header>
+
+  <div class="app-grid">
+    <!-- left: nearby devices -->
+    <div class="panel">
+      <div class="panel-title">
+        <span>📡 nearby</span>
+        <span class="dot" id="statusDot"></span>
+      </div>
+      <div class="nearby-container">
+        <div class="device-grid" id="deviceGrid">
+          <div class="empty-devices" id="emptyDevices">
+            <span class="big-icon">📶</span>
+            <span>no devices nearby</span>
+            <span style="font-size:0.75rem; opacity:0.6;">share your code to connect</span>
+          </div>
+        </div>
+        <div class="pair-section" style="margin-top:12px;">
+          <div class="pair-row">
+            <span class="label">your code</span>
+            <span class="code-display" id="myCode">------</span>
+            <button class="btn-sm" id="newCodeBtn">new</button>
+          </div>
+          <div class="pair-row">
+            <span class="label">enter code</span>
+            <input class="code-input" id="pairInput" placeholder="A1B2C3" maxlength="6" />
+            <button class="btn-sm" id="pairBtn">join</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- right: screen share -->
+    <div class="panel">
+      <div class="panel-title">
+        <span>🖥️ screen</span>
+        <span style="font-size:0.65rem; font-weight:400; opacity:0.5;" id="screenTarget">—</span>
+      </div>
+      <div class="screen-box">
+        <div class="screen-video-wrapper" id="videoWrapper">
+          <video id="remoteVideo" autoplay playsinline muted></video>
+          <div class="screen-placeholder" id="placeholderOverlay">
+            <span class="big-icon">🖥️</span>
+            <span>no screen being shared</span>
+            <span class="sub">connect a device and click "share screen"</span>
+          </div>
+        </div>
+        <div class="screen-controls">
+          <div class="left">
+            <button class="btn-share" id="shareBtn">📤 share screen</button>
+            <button class="btn-stop" id="stopBtn" style="display:none;">⏹ stop</button>
+            <span class="share-status" id="shareStatus">
+              <span class="dot orange" id="statusDotShare"></span>
+              <span id="statusTextShare">idle</span>
+            </span>
+          </div>
+          <div class="right">
+            <button class="btn-fullscreen" id="fullscreenBtn">⛶ full</button>
+          </div>
+        </div>
+      </div>
+      <div class="status-bar" style="border-radius: var(--radius-sm);">
+        <span class="dot" id="statusDotBar"></span>
+        <span id="statusText">ready</span>
+        <span class="time" id="clock">--:--</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      // ----- theme -----
+      const stored = localStorage.getItem('chatifyTheme') || 'light';
+      document.documentElement.setAttribute('data-theme', stored);
+      const themeBtn = document.getElementById('themeToggle');
+      themeBtn.textContent = stored === 'dark' ? '🌙' : '☀️';
+      themeBtn.addEventListener('click', () => {
+        const cur = document.documentElement.getAttribute('data-theme');
+        const next = cur === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('chatifyTheme', next);
+        themeBtn.textContent = next === 'dark' ? '🌙' : '☀️';
+      });
+
+      // ----- helpers -----
+      const $ = id => document.getElementById(id);
+      const notify = $('notify');
+      let notifyTimer;
+
+      function showNotify(msg) {
+        notify.textContent = msg;
+        notify.style.display = 'block';
+        clearTimeout(notifyTimer);
+        notifyTimer = setTimeout(() => notify.style.display = 'none', 4000);
+      }
+
+      function setStatus(msg, type = 'info') {
+        $('statusText').textContent = msg;
+        const dot = $('statusDotBar');
+        dot.className = 'dot ' + (type === 'ok' ? 'green' : type === 'error' ? 'red' : 'orange');
+      }
+
+      function setShareStatus(msg, type = 'idle') {
+        $('statusTextShare').textContent = msg;
+        const dot = $('statusDotShare');
+        dot.className = 'dot ' + (type === 'sharing' ? 'green' : type === 'error' ? 'red' : 'orange');
+      }
+
+      function formatTime() {
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      setInterval(() => { $('clock').textContent = formatTime(); }, 10000);
+      $('clock').textContent = formatTime();
+
+      function generateCode() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let id = '';
+        for (let i = 0; i < 6; i++) id += chars.charAt(Math.floor(Math.random() * chars.length));
+        return id;
+      }
+
+      // ----- P2P Screen Share Manager -----
+      class P2PScreenShare {
+        constructor() {
+          this.peer = null;
+          this.connections = new Map(); // peerId -> { conn, name, speed }
+          this.mediaConnections = new Map(); // peerId -> mediaConnection
+          this.localId = null;
+          this.selectedPeer = null;
+          this.isSharing = false;
+          this.localStream = null;
+          this.remoteStream = null;
+          this._listeners = {};
+          this._init();
+        }
+
+        _init() {
+          let id = localStorage.getItem('chatifyPeerId');
+          if (!id) { id = generateCode(); localStorage.setItem('chatifyPeerId', id); }
+          this.localId = id;
+          this._createPeer(id);
+        }
+
+        _createPeer(id) {
+          if (this.peer) this.peer.destroy();
+          this.peer = new Peer(id, {
+            debug: 0,
+            config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+          });
+
+          this.peer.on('open', (id) => {
+            this.localId = id;
+            $('myCode').textContent = id;
+            setStatus('online · ' + id, 'ok');
+            showNotify('your code: ' + id);
+            this._emit('peers');
+          });
+
+          this.peer.on('connection', (conn) => {
+            const peerId = conn.peer;
+            if (!this.connections.has(peerId)) {
+              this.connections.set(peerId, {
+                conn,
+                name: peerId.slice(0, 6),
+                speed: (0.5 + Math.random() * 2).toFixed(1)
+              });
+              this._setupDataConn(conn, peerId);
+              this._emit('peers');
+              showNotify('connected: ' + peerId);
+            }
+          });
+
+          this.peer.on('call', (call) => {
+            const peerId = call.peer;
+            call.answer();
+            call.on('stream', (stream) => {
+              this.remoteStream = stream;
+              this._emit('remoteStream', { peerId, stream });
+              this._emit('peers');
+            });
+            call.on('close', () => {
+              this.mediaConnections.delete(peerId);
+              this.remoteStream = null;
+              this._emit('remoteStream', { peerId, stream: null });
+              this._emit('peers');
+              showNotify('screen share ended by ' + peerId);
+            });
+            this.mediaConnections.set(peerId, call);
+            this._emit('peers');
+            showNotify('incoming screen share from ' + peerId);
+          });
+
+          this.peer.on('error', (err) => {
+            if (err.type === 'unavailable-id') {
+              const newId = generateCode();
+              localStorage.setItem('chatifyPeerId', newId);
+              showNotify('code taken · new: ' + newId);
+              this._createPeer(newId);
+            } else {
+              console.warn('peer error', err);
+              setStatus('error: ' + err.message, 'error');
+            }
+          });
+          this.peer.on('disconnected', () => setStatus('signaling lost', 'error'));
+        }
+
+        _setupDataConn(conn, peerId) {
+          conn.on('data', (data) => {
+            try {
+              const msg = JSON.parse(data);
+              if (msg.type === 'share_control') {
+                if (msg.action === 'stopped') {
+                  this._emit('remoteStream', { peerId, stream: null });
+                  showNotify('remote stopped sharing');
+                }
+              }
+            } catch (e) { /* ignore */ }
+          });
+          conn.on('close', () => {
+            this.connections.delete(peerId);
+            if (this.selectedPeer === peerId) { this.selectedPeer = null; this._emit('select'); }
+            if (this.mediaConnections.has(peerId)) {
+              const mc = this.mediaConnections.get(peerId);
+              try { mc.close(); } catch (e) {}
+              this.mediaConnections.delete(peerId);
+            }
+            if (this.remoteStream) {
+              this.remoteStream = null;
+              this._emit('remoteStream', { peerId, stream: null });
+            }
+            this._emit('peers');
+            showNotify('disconnected: ' + peerId);
+            setStatus('disconnected', 'error');
+          });
+        }
+
+        connect(remoteId) {
+          if (!this.peer) return Promise.reject('peer not ready');
+          if (this.connections.has(remoteId)) return Promise.resolve();
+          return new Promise((resolve, reject) => {
+            const conn = this.peer.connect(remoteId, { reliable: true });
+            conn.on('open', () => {
+              this.connections.set(remoteId, {
+                conn,
+                name: remoteId.slice(0, 6),
+                speed: (0.5 + Math.random() * 2).toFixed(1)
+              });
+              this._setupDataConn(conn, remoteId);
+              this._emit('peers');
+              showNotify('connected: ' + remoteId);
+              setStatus('connected', 'ok');
+              resolve();
+            });
+            conn.on('error', (e) => reject(e));
+            setTimeout(() => {
+              if (!this.connections.has(remoteId)) reject('timeout');
+            }, 12000);
+          });
+        }
+
+        // ----- Screen sharing -----
+        async startSharing() {
+          if (this.isSharing) return;
+          if (!this.selectedPeer) {
+            showNotify('select a device first');
+            return;
+          }
+          if (!this.connections.has(this.selectedPeer)) {
+            showNotify('peer not connected');
+            return;
+          }
+
+          try {
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+              video: true,
+              audio: false
+            });
+            this.localStream = stream;
+            this.isSharing = true;
+
+            const call = this.peer.call(this.selectedPeer, stream);
+            this.mediaConnections.set(this.selectedPeer, call);
+
+            call.on('close', () => {
+              this._stopSharingInternal();
+            });
+
+            stream.getTracks().forEach(track => {
+              track.onended = () => {
+                this._stopSharingInternal();
+              };
+            });
+
+            this._emit('shareState', { sharing: true });
+            this._emit('peers');
+            showNotify('sharing screen to ' + this.selectedPeer);
+            setShareStatus('sharing…', 'sharing');
+
+            const entry = this.connections.get(this.selectedPeer);
+            if (entry && entry.conn) {
+              entry.conn.send(JSON.stringify({ type: 'share_control', action: 'started' }));
+            }
+
+          } catch (err) {
+            console.error('share error', err);
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+              showNotify('screen share permission denied');
+            } else if (err.name === 'NotFoundError' || err.name === 'AbortError') {
+              showNotify('no screen selected');
+            } else {
+              showNotify('share failed: ' + err.message);
+            }
+            setShareStatus('error', 'error');
+            this.isSharing = false;
+            this.localStream = null;
+            throw err;
+          }
+        }
+
+        _stopSharingInternal() {
+          if (this.localStream) {
+            this.localStream.getTracks().forEach(t => t.stop());
+            this.localStream = null;
+          }
+          this.isSharing = false;
+          if (this.selectedPeer && this.mediaConnections.has(this.selectedPeer)) {
+            const mc = this.mediaConnections.get(this.selectedPeer);
+            try { mc.close(); } catch (e) {}
+            this.mediaConnections.delete(this.selectedPeer);
+          }
+          if (this.selectedPeer) {
+            const entry = this.connections.get(this.selectedPeer);
+            if (entry && entry.conn) {
+              try {
+                entry.conn.send(JSON.stringify({ type: 'share_control', action: 'stopped' }));
+              } catch (e) {}
+            }
+          }
+          this._emit('shareState', { sharing: false });
+          this._emit('peers');
+          setShareStatus('idle', 'idle');
+          showNotify('screen sharing stopped');
+        }
+
+        stopSharing() {
+          this._stopSharingInternal();
+        }
+
+        getPeers() {
+          const arr = [];
+          for (const [id, p] of this.connections) {
+            const hasMedia = this.mediaConnections.has(id);
+            arr.push({
+              id,
+              name: p.name || id.slice(0, 6),
+              connected: true,
+              speed: p.speed || '0.8',
+              isSharing: hasMedia
+            });
+          }
+          return arr;
+        }
+
+        getLocalId() { return this.localId; }
+        isScreenSharing() { return this.isSharing; }
+        getRemoteStream() { return this.remoteStream; }
+
+        on(ev, cb) {
+          if (!this._listeners[ev]) this._listeners[ev] = [];
+          this._listeners[ev].push(cb);
+        }
+        _emit(ev, data) {
+          if (this._listeners[ev]) {
+            for (const cb of this._listeners[ev]) cb(data);
+          }
+        }
+
+        destroy() {
+          if (this.localStream) {
+            this.localStream.getTracks().forEach(t => t.stop());
+            this.localStream = null;
+          }
+          this.remoteStream = null;
+          for (const [, mc] of this.mediaConnections) {
+            try { mc.close(); } catch (e) {}
+          }
+          this.mediaConnections.clear();
+          if (this.peer) this.peer.destroy();
+          this.connections.clear();
+          this.isSharing = false;
+        }
+      }
+
+      // ----- UI Controller -----
+      const p2p = new P2PScreenShare();
+      let selectedPeerId = null;
+      const deviceGrid = $('deviceGrid');
+      const remoteVideo = $('remoteVideo');
+      const placeholderOverlay = $('placeholderOverlay');
+      const screenTarget = $('screenTarget');
+      const shareBtn = $('shareBtn');
+      const stopBtn = $('stopBtn');
+      const fullscreenBtn = $('fullscreenBtn');
+      const videoWrapper = $('videoWrapper');
+
+      // ----- Render devices (Apple style) -----
+      function renderDevices() {
+        const peers = p2p.getPeers();
+        if (peers.length === 0) {
+          deviceGrid.innerHTML = `
+            <div class="empty-devices">
+              <span class="big-icon">📶</span>
+              <span>no devices nearby</span>
+              <span style="font-size:0.75rem; opacity:0.6;">share your code to connect</span>
+            </div>
+          `;
+          return;
+        }
+
+        let html = '';
+        for (const p of peers) {
+          const active = selectedPeerId === p.id;
+          const sharing = p.isSharing;
+          let waves = '';
+          for (let i = 0; i < 5; i++) {
+            const cls = 'wave active w' + (i + 1);
+            waves += `<span class="${cls}"></span>`;
+          }
+          const speed = p.speed || (0.5 + Math.random() * 1.5).toFixed(1);
+
+          html += `
+            <div class="device-card ${active ? 'active' : ''}">
+              <div class="device-icon-group">
+                <span class="device-icon">${sharing ? '📺' : '🖥️'}</span>
+                <div class="signal-waves">${waves}</div>
+              </div>
+              <div class="device-info">
+                <div class="device-name">${p.name} ${sharing ? '🔴' : ''}</div>
+                <div class="device-meta">
+                  <span><span class="label">signal</span> <span class="val">●</span></span>
+                  <span><span class="label">speed</span> <span class="val">${speed} Mb/s</span></span>
+                  <span><span class="label">${sharing ? 'sharing' : 'idle'}</span></span>
+                </div>
+              </div>
+              <div class="device-action">
+                <button data-id="${p.id}" ${active ? 'disabled' : ''}>${active ? 'selected' : 'select'}</button>
+              </div>
+            </div>
+          `;
+        }
+        deviceGrid.innerHTML = html;
+
+        deviceGrid.querySelectorAll('.device-action button').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.dataset.id;
+            if (selectedPeerId === id) return;
+            selectedPeerId = id;
+            p2p.selectedPeer = id;
+            screenTarget.textContent = '→ ' + (p2p.connections.get(id)?.name || id.slice(0, 6));
+            renderDevices();
+            setStatus('connected to ' + (p2p.connections.get(id)?.name || id), 'ok');
+            // Enable share button if not sharing
+            if (!p2p.isScreenSharing()) {
+              shareBtn.disabled = false;
+            }
+            const stream = p2p.getRemoteStream();
+            updateVideoDisplay(stream);
+          });
+        });
+
+        const dot = $('statusDot');
+        dot.className = 'dot ' + (peers.length > 0 ? 'online' : '');
+      }
+
+      // ----- Update video display -----
+      function updateVideoDisplay(stream) {
+        if (stream && stream.active) {
+          remoteVideo.srcObject = stream;
+          remoteVideo.style.display = 'block';
+          placeholderOverlay.style.display = 'none';
+          setShareStatus('watching', 'sharing');
+          remoteVideo.play().catch(e => console.log('autoplay blocked', e));
+        } else {
+          remoteVideo.srcObject = null;
+          remoteVideo.style.display = 'none';
+          placeholderOverlay.style.display = 'flex';
+          if (p2p.isScreenSharing()) {
+            setShareStatus('sharing…', 'sharing');
+          } else {
+            setShareStatus('idle', 'idle');
+          }
+        }
+      }
+
+      // ----- Events from p2p -----
+      p2p.on('peers', () => {
+        renderDevices();
+        if (selectedPeerId && !p2p.connections.has(selectedPeerId)) {
+          selectedPeerId = null;
+          p2p.selectedPeer = null;
+          screenTarget.textContent = '—';
+          shareBtn.disabled = true;
+          renderDevices();
+          updateVideoDisplay(null);
+          setStatus('disconnected', 'error');
+        }
+        if (selectedPeerId && p2p.connections.has(selectedPeerId) && !p2p.isScreenSharing()) {
+          shareBtn.disabled = false;
+        } else {
+          shareBtn.disabled = true;
+        }
+      });
+
+      p2p.on('remoteStream', ({ peerId, stream }) => {
+        if (!selectedPeerId || peerId === selectedPeerId) {
+          updateVideoDisplay(stream);
+          if (stream) {
+            setShareStatus('watching ' + (p2p.connections.get(peerId)?.name || peerId), 'sharing');
+            showNotify('screen shared from ' + (p2p.connections.get(peerId)?.name || peerId));
+          } else {
+            setShareStatus('idle', 'idle');
+            showNotify('screen share ended');
+          }
+        }
+        renderDevices();
+      });
+
+      p2p.on('shareState', ({ sharing }) => {
+        if (sharing) {
+          shareBtn.style.display = 'none';
+          stopBtn.style.display = 'inline-block';
+          shareBtn.disabled = true;
+          setShareStatus('sharing…', 'sharing');
+        } else {
+          shareBtn.style.display = 'inline-block';
+          stopBtn.style.display = 'none';
+          if (selectedPeerId && p2p.connections.has(selectedPeerId)) {
+            shareBtn.disabled = false;
+          } else {
+            shareBtn.disabled = true;
+          }
+          setShareStatus('idle', 'idle');
+        }
+        renderDevices();
+      });
+
+      // ----- Share button -----
+      shareBtn.addEventListener('click', async () => {
+        if (!selectedPeerId) {
+          showNotify('select a device first');
+          return;
+        }
+        if (p2p.isScreenSharing()) return;
+        try {
+          await p2p.startSharing();
+        } catch (e) {
+          shareBtn.disabled = false;
+        }
+      });
+
+      // ----- Stop button -----
+      stopBtn.addEventListener('click', () => {
+        p2p.stopSharing();
+        shareBtn.style.display = 'inline-block';
+        stopBtn.style.display = 'none';
+        if (selectedPeerId && p2p.connections.has(selectedPeerId)) {
+          shareBtn.disabled = false;
+        } else {
+          shareBtn.disabled = true;
+        }
+        const remoteStream = p2p.getRemoteStream();
+        if (!remoteStream || !remoteStream.active) {
+          updateVideoDisplay(null);
+        }
+        setShareStatus('idle', 'idle');
+        renderDevices();
+      });
+
+      // ----- Fullscreen -----
+      fullscreenBtn.addEventListener('click', () => {
+        const wrapper = $('videoWrapper');
+        if (!document.fullscreenElement) {
+          wrapper.requestFullscreen?.() || wrapper.webkitRequestFullscreen?.();
+        } else {
+          document.exitFullscreen?.() || document.webkitExitFullscreen?.();
+        }
+      });
+
+      document.addEventListener('fullscreenchange', () => {
+        fullscreenBtn.textContent = document.fullscreenElement ? '⛶ exit' : '⛶ full';
+      });
+      document.addEventListener('webkitfullscreenchange', () => {
+        fullscreenBtn.textContent = document.webkitFullscreenElement ? '⛶ exit' : '⛶ full';
+      });
+
+      // ----- Pairing UI -----
+      $('newCodeBtn').addEventListener('click', () => {
+        const newId = generateCode();
+        localStorage.setItem('chatifyPeerId', newId);
+        p2p._createPeer(newId);
+        showNotify('new code: ' + newId);
+      });
+
+      $('pairBtn').addEventListener('click', async () => {
+        const code = $('pairInput').value.trim().toUpperCase();
+        if (!code || code.length !== 6 || !/^[A-Z0-9]+$/.test(code)) {
+          showNotify('enter 6 chars (A-Z, 0-9)');
+          return;
+        }
+        if (code === p2p.getLocalId()) { showNotify('that\'s you'); return; }
+        $('pairBtn').disabled = true;
+        $('pairBtn').textContent = 'joining…';
+        try {
+          await p2p.connect(code);
+          $('pairInput').value = '';
+          showNotify('joined ' + code);
+          setStatus('joined ' + code, 'ok');
+          renderDevices();
+        } catch (err) {
+          showNotify('failed: ' + err);
+          setStatus('join failed', 'error');
+        }
+        $('pairBtn').disabled = false;
+        $('pairBtn').textContent = 'join';
+      });
+
+      $('pairInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') $('pairBtn').click();
+        if (!/^[a-zA-Z0-9]$/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' &&
+          e.key !== 'ArrowRight') e.preventDefault();
+      });
+      $('pairInput').addEventListener('input', function() {
+        this.value = this.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6);
+      });
+
+      // ----- Reset -----
+      $('resetBtn').addEventListener('click', () => {
+        if (confirm('reset all connections?')) {
+          p2p.destroy();
+          localStorage.removeItem('chatifyPeerId');
+          location.reload();
+        }
+      });
+
+      // ----- Init -----
+      $('myCode').textContent = p2p.getLocalId() || '------';
+      renderDevices();
+      setStatus('ready', 'ok');
+      shareBtn.disabled = true;
+      updateVideoDisplay(null);
+      setShareStatus('idle', 'idle');
+
+      setInterval(() => {
+        document.querySelectorAll('.wave').forEach((w, i) => {
+          w.style.animationDelay = (i * 0.15) + 's';
+        });
+      }, 2000);
+
+      console.log('Chatify Stream · p2p screen share (fixed)');
+    })();
+  </script>
+</body>
+</html>
